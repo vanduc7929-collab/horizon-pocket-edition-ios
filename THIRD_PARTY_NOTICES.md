@@ -347,3 +347,11 @@ Hints, SmartF3 and TreeFall (d3grando), ContinuityHorizon (tariksabanuz), Coordi
 (Snownee; Horizon port by Joeypc6) under CC BY-NC-SA 4.0, which is why that edition is not for
 commercial use. `native-mods/README.md` has each one's version, source and licence, and what was
 changed in six of them.
+
+## Grand Line 0.4.0 (`devilfruits`)
+
+`crates/horizon-grandline`, `crates/horizon-world/src/grandline_hooks.rs`,
+`crates/horizon-client-render/src/{bedrock_geo.rs, stretched_limbs.rs, gfx/vfx}`,
+`crates/horizon-client/src/game/grandline.rs` and the content package `assets-mods/grandline.hmod`
+are a 1:1 Rust/WGSL/26.3 port of Grand Line 0.4.0 (`devilfruits`, NeoForge 1.21.1) by the Grand Line
+Authors, licensed under the MIT licence (`assets-mods/grandline/LICENSE`).

@@ -60,6 +60,7 @@ pub mod food;
 pub mod food_properties;
 pub mod food_storage;
 pub mod free_space;
+pub mod grandline_hooks;
 pub mod ground_support;
 pub mod heightmap;
 pub mod identifier;

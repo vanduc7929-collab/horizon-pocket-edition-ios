@@ -238,6 +238,7 @@ mod sunrise_fan;
 mod timing;
 pub mod translucency;
 pub(crate) mod upload;
+pub mod vfx;
 mod view;
 mod wgsl_prefix;
 mod world_post;

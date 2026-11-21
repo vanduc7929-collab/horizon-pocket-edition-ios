@@ -35,6 +35,36 @@ pub(super) const ADD_WAYPOINT: ModKey = ModKey {
     name: "add",
     default: "key.keyboard.n",
 };
+/// Grand Line (`devilfruits`): cast / charge / hold the active Devil Fruit ability (`R`).
+pub(super) const GRANDLINE_CAST: ModKey = ModKey {
+    mod_id: "devilfruits",
+    name: "use_ability",
+    default: "key.keyboard.r",
+};
+/// Grand Line (`devilfruits`): open or cycle the Devil Fruit Ability Wheel (`V`).
+pub(super) const GRANDLINE_WHEEL: ModKey = ModKey {
+    mod_id: "devilfruits",
+    name: "ability_wheel",
+    default: "key.keyboard.v",
+};
+/// Grand Line (`devilfruits`): advance to the next equipped Devil Fruit ability slot (`G`).
+pub(super) const GRANDLINE_NEXT: ModKey = ModKey {
+    mod_id: "devilfruits",
+    name: "next_ability",
+    default: "key.keyboard.g",
+};
+/// Grand Line (`devilfruits`): toggle Transformation Form / Gear / Logia Elemental Body (`X`).
+pub(super) const GRANDLINE_FORM: ModKey = ModKey {
+    mod_id: "devilfruits",
+    name: "form_switch",
+    default: "key.keyboard.x",
+};
+/// Grand Line (`devilfruits`): toggle Busoshoku (Armament) Haki / Ryuo coating (`H`).
+pub(super) const GRANDLINE_HAKI: ModKey = ModKey {
+    mod_id: "devilfruits",
+    name: "armament_haki",
+    default: "key.keyboard.h",
+};
 
 /// What is held, and which of the mods are in this app.
 #[derive(Default)]

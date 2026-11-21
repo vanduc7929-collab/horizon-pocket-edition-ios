@@ -1442,6 +1442,7 @@ dependencies = [
  "horizon-dualsense",
  "horizon-friends",
  "horizon-gamecontroller",
+ "horizon-grandline",
  "horizon-hdr",
  "horizon-items",
  "horizon-mods",
@@ -1682,6 +1683,18 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "objc2-game-controller",
  "objc2-ui-kit 0.3.2",
+]
+
+[[package]]
+name = "horizon-grandline"
+version = "0.1.0"
+dependencies = [
+ "glam",
+ "horizon-core",
+ "horizon-world",
+ "log",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

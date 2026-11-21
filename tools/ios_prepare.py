@@ -98,10 +98,14 @@ def cargo(*args, env=None):
 
 
 def art(out):
-    """The menu art and the shader pack the app carries: Starling's own, no Mojang file."""
+    """The menu art, shader pack, and bundled Grand Line content mod the app carries: no Mojang file."""
+    import shutil
     import build_apk  # noqa: E402  (its zips, byte for byte the APK's)
     build_apk.zip_folder(ROOT / 'packaging' / 'lowbudget' / 'pack', out / 'lowbudget.zip')
     build_apk.zip_folder(ROOT / 'packaging' / 'shaderpacks' / 'starling-visuals', out / 'StarlingVisuals.zip')
+    grandline_hmod = ROOT / 'assets-mods' / 'grandline.hmod'
+    if grandline_hmod.is_file():
+        shutil.copy2(grandline_hmod, out / 'grandline.hmod')
 
 
 def main():

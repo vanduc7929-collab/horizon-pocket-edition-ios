@@ -67,6 +67,19 @@ impl CurrentAccumulator {
         }
         world.add_delta_movement(current)
     }
+    /// Grand Line hook mirroring `PlayerMixin#devilfruits$immovableBody`:
+    /// skips fluid current pushing when `modifiers.is_immovable()` is true.
+    pub fn apply_to_with_modifiers<W: CurrentTarget>(
+        &self,
+        world: &mut W,
+        speed: f64,
+        modifiers: &crate::grandline_hooks::EntityBodyModifiers,
+    ) -> Result<(), W::Error> {
+        if modifiers.is_immovable() {
+            return Ok(());
+        }
+        self.apply_to(world, speed)
+    }
 }
 pub struct FluidSections<'a> {
     pub minimum_section_y: i32,
@@ -207,6 +220,31 @@ impl EntityFluidInteraction {
             current.apply_to(world, speed)?;
         }
         Ok(())
+    }
+    /// Grand Line hook mirroring `PlayerMixin#devilfruits$immovableBody`:
+    /// skips current application when `modifiers.is_immovable()` is true.
+    pub fn apply_current_with_modifiers<W: CurrentTarget>(
+        &self,
+        world: &mut W,
+        tag: FluidTagId,
+        speed: f64,
+        modifiers: &crate::grandline_hooks::EntityBodyModifiers,
+    ) -> Result<(), W::Error> {
+        if modifiers.is_immovable() {
+            return Ok(());
+        }
+        self.apply_current(world, tag, speed)
+    }
+    /// Grand Line hook mirroring `PlayerMixin#isPushedByFluid`:
+    /// ignores fluid current accumulation when `modifiers.is_immovable()` is true.
+    pub fn update_with_modifiers<W: FluidInteractionWorld>(
+        &mut self,
+        world: &mut W,
+        ignore_current: bool,
+        budget: usize,
+        modifiers: &crate::grandline_hooks::EntityBodyModifiers,
+    ) -> Result<bool, FluidInteractionError<W::Error>> {
+        self.update(world, ignore_current || modifiers.is_immovable(), budget)
     }
     /// Reset previous tick state before any query. Provider failures and budget
     /// exhaustion retain all preceding tracker/current writes.

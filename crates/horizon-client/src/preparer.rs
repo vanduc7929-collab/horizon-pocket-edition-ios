@@ -337,6 +337,42 @@ pub fn put_shader_pack(game_folder: &Path) {
     }
 }
 
+/// Grand Line 0.4.0 (`devilfruits`), the content mod the app carries (`assets/grandline.hmod`),
+/// put in `horizon-mods/` of the game folder and enabled (`mod.devilfruits:true`) on first install.
+pub fn put_grandline_mod(game_folder: &Path) {
+    let Some(bytes) = crate::platform::asset("grandline.hmod") else {
+        return;
+    };
+    let stamp = format!("{}-{:08x}", bytes.len(), crc32(&bytes));
+    let marker = crate::logging::private_home().join(".grandline-hmod");
+    if std::fs::read_to_string(&marker).ok().as_deref() == Some(&stamp) {
+        return;
+    }
+    let dir = game_folder.join("horizon-mods");
+    match std::fs::create_dir_all(&dir)
+        .and_then(|()| std::fs::write(dir.join("grandline.hmod"), &bytes))
+        .and_then(|()| std::fs::write(&marker, &stamp))
+    {
+        Ok(()) => {
+            log::info!("Horizon: Grand Line 0.4.0 put in {}", dir.display());
+            let list_path = game_folder.join("horizon-mods.txt");
+            let existing = std::fs::read_to_string(&list_path).unwrap_or_default();
+            if !existing.lines().any(|l| l.trim().starts_with("mod.devilfruits:")) {
+                let mut updated = existing;
+                if !updated.is_empty() && !updated.ends_with('\n') {
+                    updated.push('\n');
+                }
+                updated.push_str("mod.devilfruits:true\n");
+                let _ = std::fs::write(&list_path, updated);
+            }
+        }
+        Err(e) => log::warn!(
+            "Horizon: Grand Line 0.4.0 could not be put in {}: {e}",
+            dir.display()
+        ),
+    }
+}
+
 /// CRC-32 (IEEE), to tell one skin from the next.
 fn crc32(bytes: &[u8]) -> u32 {
     let mut crc = !0u32;

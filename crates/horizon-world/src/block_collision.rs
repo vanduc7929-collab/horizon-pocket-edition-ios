@@ -120,7 +120,8 @@ impl<'r> BlockCollisionRegistry<'r> {
                     | (u8::from(state.name == "minecraft:moving_piston") << 1)
                     | (u8::from(empty) << 2)
                     | (u8::from(contextual.contains_key(&id)) << 3)
-                    | (u8::from(full) << 4),
+                    | (u8::from(full) << 4)
+                    | (u8::from(crate::grandline_hooks::is_leaves_block_name(&state.name)) << 5),
             );
             if cached.cached_shape(id)?.is_none() {
                 if let Some(rule) =
@@ -186,6 +187,24 @@ impl<'r> BlockCollisionRegistry<'r> {
             .get(state.0 as usize)
             .is_none_or(|flags| flags & 4 == 0)
     }
+    /// Whether `state` belongs to the vanilla `#minecraft:leaves` block family.
+    pub fn is_leaves(&self, state: BlockStateId) -> bool {
+        self.scan_flags
+            .get(state.0 as usize)
+            .is_some_and(|flags| flags & 32 != 0)
+    }
+    /// Modifier-aware [`Self::may_collide`]: leaves are non-colliding when
+    /// `modifiers.passes_through_leaves` is active (`BlockStateBaseMixin`).
+    pub fn may_collide_with_modifiers(
+        &self,
+        state: BlockStateId,
+        modifiers: &crate::grandline_hooks::EntityBodyModifiers,
+    ) -> bool {
+        if modifiers.passes_through_leaves && self.is_leaves(state) {
+            return false;
+        }
+        self.may_collide(state)
+    }
     /// Whether a scan keeps `state` in the cells around its box: a large
     /// collision shape or a moving piston. States outside the registry count.
     pub fn reaches_out(&self, state: BlockStateId) -> bool {
@@ -245,6 +264,33 @@ impl<'r> BlockCollisionRegistry<'r> {
             }
             None => self.collision_shape(world, state, [position.x, position.y, position.z]),
         }
+    }
+
+    /// Mirrors `BlockStateBaseMixin#devilfruits$leavesPassThrough` on top of
+    /// [`Self::collision_shape_with_context`]. Returns `VoxelShape::empty()` when
+    /// `modifiers.passes_through_leaves` is active for an entity collision context
+    /// intersecting `#minecraft:leaves`. Vanilla-equivalent when `modifiers` is default.
+    pub fn collision_shape_with_modifiers<W, E>(
+        &self,
+        world: &mut W,
+        state: BlockStateId,
+        position: horizon_core::position::BlockPos,
+        context: &CollisionContext<'_>,
+        modifiers: &crate::grandline_hooks::EntityBodyModifiers,
+    ) -> Result<VoxelShape, CollisionQueryError<E>>
+    where
+        W: DynamicCollisionWorld<Error = E>
+            + LiquidCollisionWorld<Error = E>
+            + PowderSnowWorld<Error = E>,
+    {
+        if crate::grandline_hooks::passes_through_leaves(
+            self.is_leaves(state),
+            context.entity().is_some(),
+            modifiers,
+        ) {
+            return Ok(VoxelShape::empty());
+        }
+        self.collision_shape_with_context(world, state, position, context)
     }
 }
 

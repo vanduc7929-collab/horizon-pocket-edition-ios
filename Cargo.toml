@@ -8,6 +8,7 @@ members = [
     "crates/horizon-threads",
     "crates/horizon-hdr",
     "crates/horizon-world",
+    "crates/horizon-grandline",
     "crates/horizon-client",
     # Starling: the game as a NativeActivity library; empty on other targets.
     "crates/horizon-android",

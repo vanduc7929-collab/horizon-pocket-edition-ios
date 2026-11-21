@@ -337,6 +337,39 @@ impl TouchControls {
         self.force_crosshair || self.settings.crosshair()
     }
 
+    /// Ensures the 5 Grand Line (`devilfruits`) iOS touch buttons (`DF Cast`, `DF Next`,
+    /// `DF Wheel`, `DF Form`, `DF Haki`) exist in `self.settings.custom` when `enabled` is true,
+    /// or removes auto-managed `[DF ` buttons when `enabled` is false.
+    pub fn sync_grandline_buttons(&mut self, enabled: bool, bindings: &[(&str, &str, [f32; 3])]) {
+        if !enabled {
+            self.settings
+                .custom
+                .retain(|b| !b.custom_label.starts_with("DF "));
+            return;
+        }
+        for &(key, label, [x, y, size]) in bindings {
+            if let Some(existing) = self
+                .settings
+                .custom
+                .iter_mut()
+                .find(|b| b.custom_label == label)
+            {
+                if existing.key != key {
+                    existing.key = key.to_owned();
+                }
+            } else {
+                self.settings.custom.push(CustomButton {
+                    key: key.to_owned(),
+                    second_key: String::new(),
+                    third_key: String::new(),
+                    custom_label: label.to_owned(),
+                    always_visible: false,
+                    layouts: [Placement::new(x, y, size); 3],
+                });
+            }
+        }
+    }
+
     pub fn update_visibility(&mut self, touch_active: bool, dt: f32) {
         let target = if touch_active || self.editor.is_some() {
             1.0

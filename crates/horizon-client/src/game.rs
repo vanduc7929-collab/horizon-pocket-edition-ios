@@ -216,6 +216,7 @@ mod mod_assets;
 #[cfg(any(target_os = "android", target_os = "ios"))]
 mod mod_catalog;
 mod mod_keys;
+pub(crate) mod grandline;
 mod mods;
 mod mount_menu;
 mod mounts;

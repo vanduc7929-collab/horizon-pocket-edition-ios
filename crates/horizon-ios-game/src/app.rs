@@ -175,6 +175,7 @@ impl App {
                 }
                 // Read from the app's bundle (`assets/`), as Android's from the APK.
                 horizon_client::preparer::put_shader_pack(&home);
+                horizon_client::preparer::put_grandline_mod(&home);
                 // The saved Microsoft sign-in renews while the game loads.
                 horizon_client::accounts::resume();
             });

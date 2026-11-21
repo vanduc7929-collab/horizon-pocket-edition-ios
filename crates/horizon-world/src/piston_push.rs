@@ -245,6 +245,42 @@ pub fn ignores_push(marker: bool) -> bool {
     marker
 }
 
+/// Grand Line hook mirroring `EntityMixin#devilfruits$immovableBody`:
+/// returns `true` when the entity is a marker or has an immovable body (`EntityMass.immovable`).
+pub fn ignores_push_with_modifiers(
+    marker: bool,
+    modifiers: &crate::grandline_hooks::EntityBodyModifiers,
+) -> bool {
+    marker || modifiers.is_immovable()
+}
+
+/// Grand Line hook mirroring `EntityMixin#getPistonPushReaction`:
+/// forces [`PushReaction::IgnoreEntity`] when `modifiers.is_immovable()` is true.
+pub fn effective_push_reaction(
+    vanilla: PushReaction,
+    modifiers: &crate::grandline_hooks::EntityBodyModifiers,
+) -> PushReaction {
+    crate::grandline_hooks::effective_piston_push_reaction(vanilla, modifiers)
+}
+
+/// Grand Line hook applying [`effective_push_reaction`] before [`matches_sticky_criteria`].
+pub fn matches_sticky_criteria_with_modifiers(
+    area: Aabb,
+    reaction: PushReaction,
+    on_ground: bool,
+    supported_by_piston: bool,
+    entity_position: Vec3,
+    modifiers: &crate::grandline_hooks::EntityBodyModifiers,
+) -> bool {
+    matches_sticky_criteria(
+        area,
+        effective_push_reaction(reaction, modifiers),
+        on_ground,
+        supported_by_piston,
+        entity_position,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
