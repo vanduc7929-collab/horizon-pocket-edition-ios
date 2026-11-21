@@ -11,7 +11,7 @@ run-name: iOS · ${{ inputs.mods && format('native mods {0} · ', inputs.mods) |
 # iPhone runs no code its app did not ship with, so a native mod is part of the app itself.
 on:
   push:
-    branches: [main]
+branches: [main, shared-worlds-mods]
   workflow_dispatch:
     inputs:
       deliver:
