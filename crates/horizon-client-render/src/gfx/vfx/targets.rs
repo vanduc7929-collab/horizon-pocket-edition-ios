@@ -266,8 +266,8 @@ impl VfxTargets {
 
         // Emissive HDR target (full-res on High, half-res on Medium / thermal load).
         let emissive_div = quality.emissive_divisor(under_load);
-        if emissive_div > 0 {
-            let e_size = [(w / emissive_div).max(1), (h / emissive_div).max(1)];
+        if let (Some(ew), Some(eh)) = (w.checked_div(emissive_div), h.checked_div(emissive_div)) {
+            let e_size = [ew.max(1), eh.max(1)];
             self.emissive = Some(VfxTextureTarget::new(
                 device,
                 "Grand Line VFX emissive",

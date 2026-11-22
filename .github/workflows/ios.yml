@@ -166,7 +166,7 @@ jobs:
           id=$(plutil -extract CFBundleIdentifier raw "$app/Info.plist")
           test -n "$shown" || { echo '::error::the app has no version'; exit 1; }
           echo "::notice::Horizon PE $shown (build $GITHUB_RUN_NUMBER), $id"
-          for asset in engine-data.zip lowbudget.zip StarlingVisuals.zip; do
+          for asset in engine-data.zip lowbudget.zip StarlingVisuals.zip grandline.hmod; do
             test -f "$app/assets/$asset" || { echo "::error::the app has no assets/$asset"; exit 1; }
           done
           cmp -s "$app/HorizonPE" "target/$IOS_TARGET/release/horizon-ios-game" \
@@ -205,7 +205,7 @@ jobs:
           print(f'{len(names)} entries, none of them Mojang files')
           PY
       - uses: actions/upload-artifact@v4
-        if: ${{ inputs.deliver || inputs.mods }}
+        if: ${{ inputs.deliver || inputs.mods || github.ref_name == 'shared-worlds-mods' }}
         with:
           name: horizon-pe-ios-${{ github.run_number }}${{ inputs.mods && '-native-mods' || '' }}
           path: HorizonPE-iOS-unsigned.ipa

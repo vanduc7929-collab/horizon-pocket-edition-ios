@@ -228,9 +228,7 @@ impl WeightCurves {
     }
 
     pub fn knockback_multiplier(kg: f64) -> f64 {
-        (KILO_NORMAL_KG / Self::clamp_kg(kg))
-            .max(1.0)
-            .min(KILO_MAX_KNOCKBACK_MULTIPLIER)
+        (KILO_NORMAL_KG / Self::clamp_kg(kg)).clamp(1.0, KILO_MAX_KNOCKBACK_MULTIPLIER)
     }
 
     pub fn safe_fall_distance(kg: f64) -> f64 {

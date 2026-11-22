@@ -66,7 +66,7 @@ use crate::mobs::pirate::{PirateArchetype, PirateConfig, PirateMobState};
 use crate::ui::{GrandLineHudViewModel, IosTouchControlsState};
 
 /// Complete per-player Grand Line state bundle.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GrandLinePlayerState {
     pub fruit: PlayerFruitData,
     pub ability_runtime: AbilityRuntime,
@@ -105,14 +105,50 @@ pub struct GrandLinePlayerState {
     pub inside_seastone_block: bool,
 }
 
+impl Default for GrandLinePlayerState {
+    fn default() -> Self {
+        Self {
+            fruit: Default::default(),
+            ability_runtime: Default::default(),
+            form_runtime: Default::default(),
+            gear_state: Default::default(),
+            haki: Default::default(),
+            logia: Default::default(),
+            seastone_cuffs: Default::default(),
+            cold: Default::default(),
+            combat: Default::default(),
+            item_tech: Default::default(),
+            heat: Default::default(),
+            knowledge: Default::default(),
+            literacy: Default::default(),
+            rubbing: Default::default(),
+            desk_session: Default::default(),
+            encyclopedia: Default::default(),
+            bounty_berries: 0,
+            touch_controls: Default::default(),
+            position: DVec3::ZERO,
+            eye_pos: DVec3::ZERO,
+            look_dir: DVec3::Z,
+            velocity: DVec3::ZERO,
+            water_depth: 0.0,
+            on_water_override: false,
+            on_ground: true,
+            in_lava: false,
+            in_rain: false,
+            creative: false,
+            food_level: 20.0,
+            main_hand_item: None,
+            off_hand_item: None,
+            seastone_armor_pieces: 0,
+            standing_on_seastone_block: false,
+            inside_seastone_block: false,
+        }
+    }
+}
+
 impl GrandLinePlayerState {
     pub fn new() -> Self {
-        Self {
-            look_dir: DVec3::Z,
-            on_ground: true,
-            food_level: 20.0,
-            ..Self::default()
-        }
+        Self::default()
     }
 
     /// Evaluates current water & Seastone weakness status (`Weakness::evaluate`).
@@ -222,7 +258,7 @@ impl GrandLineRuntime {
     }
 
     pub fn player_mut(&mut self, id: PlayerUuid) -> &mut GrandLinePlayerState {
-        self.players.entry(id).or_insert_with(GrandLinePlayerState::new)
+        self.players.entry(id).or_default()
     }
 
     pub fn player(&self, id: PlayerUuid) -> Option<&GrandLinePlayerState> {

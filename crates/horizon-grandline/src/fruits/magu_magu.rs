@@ -966,7 +966,7 @@ impl DevilFruitModule for MaguMaguModule {
                 for t in hits {
                     let dy = t.center.y - point.y;
                     let flat = DVec3::new(t.center.x - point.x, 0.0, t.center.z - point.z).length();
-                    if flat <= KAZAN_RADIUS + t.width * 0.5 && dy >= -1.0 && dy <= KAZAN_HEIGHT {
+                    if flat <= KAZAN_RADIUS + t.width * 0.5 && (-1.0..=KAZAN_HEIGHT).contains(&dy) {
                         let away = DVec3::new(t.center.x - point.x, 0.0, t.center.z - point.z)
                             .normalize_or_zero();
                         let push =

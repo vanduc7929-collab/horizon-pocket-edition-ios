@@ -533,7 +533,9 @@ impl LimbFill {
     /// Convenience variant taking raw RGBA8 bytes (`[r, g, b, a, ...]`).
     pub fn first_row_rgba8(rgba: &[u8], w: u32, h: u32, layout: &LimbUvLayout) -> u32 {
         let packed: Vec<u32> = rgba
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|c| {
                 u32::from(c[3]) << 24
                     | u32::from(c[2]) << 16
@@ -794,10 +796,14 @@ impl LimbPath {
     }
 
     fn compute_tangent(&self, i: usize, chord: f32) -> Vec3 {
-        let dir = if i == 0 && self.start_dir.is_some() {
-            self.start_dir.unwrap()
-        } else if i == self.count - 1 && self.end_dir.is_some() {
-            self.end_dir.unwrap()
+        let dir = if i == 0
+            && let Some(d) = self.start_dir
+        {
+            d
+        } else if i == self.count - 1
+            && let Some(d) = self.end_dir
+        {
+            d
         } else {
             let a = i.saturating_sub(1);
             let b = (i + 1).min(self.count - 1);
@@ -1588,7 +1594,7 @@ impl StretchedLimbMesh {
     /// Expands quad vertices (`4` per quad) into a triangle list (`6` per quad).
     pub fn quads_to_triangles(quads: &[LimbVertex]) -> Vec<LimbVertex> {
         let mut tris = Vec::with_capacity((quads.len() / 4) * 6);
-        for q in quads.chunks_exact(4) {
+        for q in quads.as_chunks::<4>().0 {
             tris.push(q[0]);
             tris.push(q[1]);
             tris.push(q[2]);

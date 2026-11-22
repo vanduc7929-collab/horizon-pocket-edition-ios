@@ -16,11 +16,13 @@ use horizon_client::hud::HudBatch;
 use horizon_grandline::{
     GrandLineRuntime,
     core::{
+        form::FruitFormDef,
         fruit::FruitId,
+        logia::LogiaState,
         network::{
             AbilityInputAction, C2SPayload, FormInputAction, HakiInputAction, LogiaInputAction,
         },
-        rules::PlayerUuid,
+        rules::{PlayerFruitData, PlayerUuid},
     },
 };
 use horizon_world::grandline_hooks::EntityBodyModifiers;
@@ -318,6 +320,25 @@ pub(super) fn register_commands(commands: &mut Vec<&'static str>) {
     }
 }
 
+fn active_ability_list(fruit: &PlayerFruitData) -> Vec<String> {
+    let Some(fid) = fruit.fruit_id else {
+        return Vec::new();
+    };
+    let forms = FruitFormDef::builtin_forms(fid);
+    if let Some(form_def) = forms
+        .iter()
+        .find(|f| f.id.name == fruit.active_form)
+        .or_else(|| forms.first())
+    {
+        return form_def.abilities.clone();
+    }
+    fid.meta()
+        .base_abilities
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect()
+}
+
 /// Executes a Grand Line chat command (`/devilfruit`, `/df`, `/haki`, `/ability`, `/poneglyph`, `/bounty`).
 pub(super) fn on_command(game: &mut Game<'_>, command: &str, ran: &mut bool) {
     if *ran || !game.native_on(ID) {
@@ -332,11 +353,9 @@ pub(super) fn on_command(game: &mut Game<'_>, command: &str, ran: &mut bool) {
         return;
     }
     sync_player_into_runtime(game);
-    let response = STATE.with_borrow_mut(|st| st.runtime.handle_command(LOCAL_PLAYER_UUID, trimmed));
-    if let Some(resp) = response {
-        *ran = true;
-        game.native_chat(&format!("[Grand Line] {}", resp.message));
-    }
+    let resp = STATE.with_borrow_mut(|st| st.runtime.handle_command(LOCAL_PLAYER_UUID, trimmed));
+    *ran = true;
+    game.native_chat(&format!("[Grand Line] {}", resp.message));
 }
 
 /// Handles Grand Line key press / release events (keyboard, gamepad, or iOS touch button).
@@ -392,10 +411,18 @@ pub(super) fn on_key(game: &mut Game<'_>, key: &str, pressed: bool) {
             AbilityInputAction::Release
         };
         let impulse = STATE.with_borrow_mut(|st| {
-            let _ = st.runtime.handle_payload(
-                LOCAL_PLAYER_UUID,
-                C2SPayload::AbilityInput { action, slot: None },
-            );
+            let ability = st.runtime.player(LOCAL_PLAYER_UUID).and_then(|p| {
+                p.fruit
+                    .selected_ability
+                    .clone()
+                    .or_else(|| active_ability_list(&p.fruit).into_iter().next())
+            });
+            if let Some(ability) = ability {
+                let _ = st.runtime.handle_payload(
+                    LOCAL_PLAYER_UUID,
+                    C2SPayload::AbilityInput { action, ability },
+                );
+            }
             st.runtime
                 .player(LOCAL_PLAYER_UUID)
                 .map(|p| p.velocity)
@@ -405,23 +432,29 @@ pub(super) fn on_key(game: &mut Game<'_>, key: &str, pressed: bool) {
         }
     } else if key == next_key && pressed {
         let msg = STATE.with_borrow_mut(|st| {
-            let next_slot = st
-                .runtime
-                .player(LOCAL_PLAYER_UUID)
-                .map_or(0, |p| ((p.fruit.selected_slot + 1) % 5) as u8);
+            let (next_idx, next_ab) = {
+                let p = st.runtime.player(LOCAL_PLAYER_UUID)?;
+                let abilities = active_ability_list(&p.fruit);
+                if abilities.is_empty() {
+                    return None;
+                }
+                let cur = p
+                    .fruit
+                    .selected_ability
+                    .as_deref()
+                    .and_then(|s| abilities.iter().position(|a| a == s))
+                    .unwrap_or(abilities.len().saturating_sub(1));
+                let next_idx = (cur + 1) % abilities.len();
+                (next_idx, abilities[next_idx].clone())
+            };
             let _ = st.runtime.handle_payload(
                 LOCAL_PLAYER_UUID,
                 C2SPayload::AbilityInput {
-                    action: AbilityInputAction::SelectSlot,
-                    slot: Some(next_slot),
+                    action: AbilityInputAction::Select,
+                    ability: next_ab.clone(),
                 },
             );
-            st.runtime.player(LOCAL_PLAYER_UUID).and_then(|p| {
-                p.fruit
-                    .selected_ability
-                    .as_ref()
-                    .map(|ab| format!("Slot {}: {}", next_slot + 1, ab))
-            })
+            Some(format!("Slot {}: {next_ab}", next_idx + 1))
         });
         if let Some(m) = msg {
             game.native_chat(&format!("[Grand Line] {m}"));
@@ -441,18 +474,25 @@ pub(super) fn on_key(game: &mut Game<'_>, key: &str, pressed: bool) {
                 let _ = st.runtime.handle_payload(
                     LOCAL_PLAYER_UUID,
                     C2SPayload::LogiaInput {
-                        action: LogiaInputAction::ToggleReflex,
+                        action: LogiaInputAction::ElementalToggle,
                     },
                 );
-                st.runtime
-                    .player(LOCAL_PLAYER_UUID)
-                    .map(|p| format!("Logia Elemental Reflex: {}", if p.logia.reflex_active { "ON" } else { "OFF" }))
+                st.runtime.player(LOCAL_PLAYER_UUID).map(|p| {
+                    format!(
+                        "Logia Elemental Body: {}",
+                        if p.logia.state == LogiaState::ElementalBody {
+                            "ON"
+                        } else {
+                            "OFF"
+                        }
+                    )
+                })
             } else {
                 let _ = st.runtime.handle_payload(
                     LOCAL_PLAYER_UUID,
                     C2SPayload::FormInput {
-                        action: FormInputAction::CycleNext,
-                        form_id: None,
+                        action: FormInputAction::Cycle,
+                        form: String::new(),
                     },
                 );
                 st.runtime
@@ -465,17 +505,18 @@ pub(super) fn on_key(game: &mut Game<'_>, key: &str, pressed: bool) {
         }
     } else if key == haki_key && pressed {
         let status = STATE.with_borrow_mut(|st| {
+            let haki_cfg = st.runtime.haki_config;
             let p = st.runtime.player_mut(LOCAL_PLAYER_UUID);
             if !p.haki.unlocked {
                 p.haki.unlocked = true;
                 p.haki.level = p.haki.level.max(1);
-                p.haki.spirit = p.haki.max_spirit(&st.runtime.haki_config);
+                p.haki.spirit = p.haki.max_spirit(&haki_cfg);
             }
             let _ = st.runtime.handle_payload(
                 LOCAL_PLAYER_UUID,
                 C2SPayload::HakiInput {
-                    action: HakiInputAction::ToggleActive,
-                    part_mask: None,
+                    action: HakiInputAction::Toggle,
+                    mask: 0,
                 },
             );
             st.runtime.player(LOCAL_PLAYER_UUID).map(|p| {
@@ -484,7 +525,7 @@ pub(super) fn on_key(game: &mut Game<'_>, key: &str, pressed: bool) {
                     if p.haki.active { "COATED" } else { "OFF" },
                     p.haki.level,
                     p.haki.spirit,
-                    p.haki.max_spirit(&st.runtime.haki_config)
+                    p.haki.max_spirit(&haki_cfg)
                 )
             })
         });
@@ -503,11 +544,7 @@ pub(super) fn on_tick(game: &mut Game<'_>) {
     sync_player_into_runtime(game);
     STATE.with_borrow_mut(|st| {
         st.runtime.tick();
-        let mods = st
-            .runtime
-            .body_modifiers_for(LOCAL_PLAYER_UUID)
-            .unwrap_or(EntityBodyModifiers::VANILLA);
-        st.body_modifiers = mods;
+        st.body_modifiers = st.runtime.body_modifiers_for(LOCAL_PLAYER_UUID);
     });
 }
 
@@ -580,7 +617,7 @@ pub(super) fn draw_hud(game: &mut Game<'_>, batch: &mut HudBatch) {
     let Some(vm) = vm else {
         return;
     };
-    if vm.fruit_id.is_none() && !vm.haki.unlocked {
+    if !vm.has_fruit && !vm.haki.unlocked {
         return;
     }
 
@@ -596,17 +633,19 @@ pub(super) fn draw_hud(game: &mut Game<'_>, batch: &mut HudBatch) {
             vm.active_form.to_uppercase()
         );
         game.native_fill(batch, [x - 2.0, y - 2.0, bar_w + 4.0, 24.0], 0x880B_1320);
-        game.native_text(batch, &header, [x, y], 0xFFD7_70, true);
+        game.native_text(batch, &header, [x, y], 0xFFD770, true);
         y += 11.0;
 
         // Energy bar background & fill
         game.native_fill(batch, [x, y, bar_w, 8.0], 0xCC1A_2230);
-        let fill_w = (bar_w * vm.energy_ratio().clamp(0.0, 1.0)).round();
+        let fill_w = (bar_w * vm.energy_fraction.clamp(0.0, 1.0)).round();
+        let gear2_active = vm.wheel.active_gear == "gear_2" || vm.active_form == "gear_2";
+        let logia_reflex_active = vm.logia_state == Some(LogiaState::ElementalBody);
         let bar_color = if vm.suppressed {
             0xCC88_4444
-        } else if vm.gear2_active {
+        } else if gear2_active {
             0xCCFF_5577
-        } else if vm.logia_reflex_active {
+        } else if logia_reflex_active {
             0xCC44_DDFF
         } else {
             0xCC2E_A8FF
@@ -619,14 +658,14 @@ pub(super) fn draw_hud(game: &mut Game<'_>, batch: &mut HudBatch) {
         } else {
             format!("EN {:.0}/{:.0}", vm.energy, vm.max_energy)
         };
-        game.native_text(batch, &energy_label, [x + 3.0, y], 0xF0F6_FF, true);
+        game.native_text(batch, &energy_label, [x + 3.0, y], 0xF0F6FF, true);
         y += 13.0;
     }
 
     // Armament Haki Spirit meter
     if vm.haki.unlocked {
         game.native_fill(batch, [x, y, bar_w, 8.0], 0xCC1F_1424);
-        let haki_w = (bar_w * vm.haki.ratio().clamp(0.0, 1.0)).round();
+        let haki_w = (bar_w * vm.haki.spirit_fraction.clamp(0.0, 1.0)).round();
         let haki_color = if vm.haki.active {
             0xCCD4_2A5E
         } else {
@@ -640,16 +679,14 @@ pub(super) fn draw_hud(game: &mut Game<'_>, batch: &mut HudBatch) {
             vm.haki.level,
             if vm.haki.active { "[ACTIVE]" } else { "" }
         );
-        game.native_text(batch, &haki_txt, [x + 3.0, y], 0xFFE4_F2, true);
+        game.native_text(batch, &haki_txt, [x + 3.0, y], 0xFFE4F2, true);
         y += 12.0;
     }
 
-    // 5 Ability Slots
-    for slot in &vm.slots {
-        let Some(ref name) = slot.display_name else {
-            continue;
-        };
-        let bg = if slot.selected {
+    // Ability Slots
+    for slot in &vm.wheel.slots {
+        let name = &slot.ability_name;
+        let bg = if slot.is_selected {
             0xAA1F_3B5C
         } else {
             0x7810_1824
@@ -660,52 +697,48 @@ pub(super) fn draw_hud(game: &mut Game<'_>, batch: &mut HudBatch) {
                 " ({:.1}s)",
                 (slot.cooldown_remaining_ticks as f32) / 20.0
             )
-        } else if slot.toggled_on {
+        } else if slot.is_toggled_on {
             " [ON]".to_string()
         } else {
             String::new()
         };
         let line = format!(
             "{}{} {}{}",
-            if slot.selected { ">" } else { " " },
-            slot.slot_index + 1,
+            if slot.is_selected { ">" } else { " " },
+            slot.index + 1,
             name,
             cd_suffix
         );
-        let color = if !slot.unlocked || slot.cooldown_remaining_ticks > 0 {
-            0x99A3_B0
-        } else if slot.selected {
-            0x55FF_AA
+        let color = if !slot.is_unlocked || slot.cooldown_remaining_ticks > 0 {
+            0x99A3B0
+        } else if slot.is_selected {
+            0x55FFAA
         } else {
-            0xE6EE_F8
+            0xE6EEF8
         };
         game.native_text(batch, &line, [x, y + 1.0], color, true);
         y += 12.0;
     }
 
     // Ability Wheel modal overlay when toggled open
-    if vm.wheel.open {
+    if vm.wheel.visible {
         let cx = batch.width * 0.5 - 75.0;
         let cy = batch.height * 0.35;
-        game.native_fill(batch, [cx - 6.0, cy - 14.0, 162.0, 82.0], 0xCC0A_101A);
+        let wheel_h = (vm.wheel.slots.len().max(1) as f32) * 12.0 + 22.0;
+        game.native_fill(batch, [cx - 6.0, cy - 14.0, 162.0, wheel_h], 0xCC0A_101A);
         game.native_text(
             batch,
             "DEVIL FRUIT ABILITY WHEEL",
             [cx, cy - 11.0],
-            0xFFD7_70,
+            0xFFD770,
             true,
         );
         for (i, slot) in vm.wheel.slots.iter().enumerate() {
-            let label = slot.display_name.as_deref().unwrap_or("---");
-            let row = format!(
-                "[{}] {}",
-                i + 1,
-                label
-            );
-            let col = if vm.wheel.highlighted_slot == Some(i) || slot.selected {
-                0x55FF_AA
+            let row = format!("[{}] {}", i + 1, slot.ability_name);
+            let col = if slot.is_selected {
+                0x55FFAA
             } else {
-                0xDCE6_F2
+                0xDCE6F2
             };
             game.native_text(batch, &row, [cx + 4.0, cy + (i as f32) * 12.0], col, true);
         }

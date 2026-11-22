@@ -1165,7 +1165,7 @@ fn extract_normal_mat3(m: Mat4) -> Mat3 {
 /// Expands quad-list vertices (`4` per face) into a triangle list (`6` per face).
 pub fn quads_to_triangles(quads: &[GeoVertex]) -> Vec<GeoVertex> {
     let mut tris = Vec::with_capacity((quads.len() / 4) * 6);
-    for quad in quads.chunks_exact(4) {
+    for quad in quads.as_chunks::<4>().0 {
         tris.push(quad[0]);
         tris.push(quad[1]);
         tris.push(quad[2]);

@@ -1712,75 +1712,75 @@ impl VfxFrameGraph {
         }
 
         // 2. Half-res volumetric smoke ray-march + 5-tap tent upsample over the scene.
-        if has_smoke_volume {
-            if let (Some(sv_params), Some(half_target), Some(depth_target)) = (
+        if has_smoke_volume
+            && let (Some(sv_params), Some(half_target), Some(depth_target)) = (
                 &inputs.smoke_volume,
                 self.targets.smoke_volume(),
                 self.targets.depth_copy(),
-            ) {
-                queue.write_buffer(
-                    &self.smoke_volume_ubo,
-                    0,
-                    bytemuck::bytes_of(&sv_params.uniform),
-                );
-                let vol_bg = self.pipelines.bind_smoke_volume(
-                    device,
-                    &self.smoke_volume_ubo,
-                    &depth_target.view,
-                    sv_params.volume_noise_view,
-                );
-                {
-                    let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        label: Some("Grand Line VFX smoke volume raymarch"),
-                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                            view: &half_target.view,
-                            resolve_target: None,
-                            depth_slice: None,
-                            ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
-                                store: wgpu::StoreOp::Store,
-                            },
-                        })],
-                        ..Default::default()
-                    });
-                    pass.set_pipeline(&self.pipelines.vfx_smoke_volume);
-                    pass.set_bind_group(0, &vol_bg, &[]);
-                    pass.draw(0..3, 0..1);
-                }
-
-                let comp_ubo_data = VfxSmokeCompositeUniform {
-                    src_texel: [half_target.inv_size()[0], half_target.inv_size()[1], 0.0, 0.0],
-                };
-                queue.write_buffer(
-                    &self.smoke_composite_ubo,
-                    0,
-                    bytemuck::bytes_of(&comp_ubo_data),
-                );
-                let comp_bg = self.pipelines.bind_smoke_composite(
-                    device,
-                    &self.smoke_composite_ubo,
-                    &half_target.view,
-                );
-                {
-                    let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        label: Some("Grand Line VFX smoke volume composite"),
-                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                            view: inputs.scene_color_view,
-                            resolve_target: None,
-                            depth_slice: None,
-                            ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Load,
-                                store: wgpu::StoreOp::Store,
-                            },
-                        })],
-                        ..Default::default()
-                    });
-                    pass.set_pipeline(&self.pipelines.vfx_smoke_composite);
-                    pass.set_bind_group(0, &comp_bg, &[]);
-                    pass.draw(0..3, 0..1);
-                }
-                stats.smoke_volume_drawn = true;
+            )
+        {
+            queue.write_buffer(
+                &self.smoke_volume_ubo,
+                0,
+                bytemuck::bytes_of(&sv_params.uniform),
+            );
+            let vol_bg = self.pipelines.bind_smoke_volume(
+                device,
+                &self.smoke_volume_ubo,
+                &depth_target.view,
+                sv_params.volume_noise_view,
+            );
+            {
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("Grand Line VFX smoke volume raymarch"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &half_target.view,
+                        resolve_target: None,
+                        depth_slice: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    ..Default::default()
+                });
+                pass.set_pipeline(&self.pipelines.vfx_smoke_volume);
+                pass.set_bind_group(0, &vol_bg, &[]);
+                pass.draw(0..3, 0..1);
             }
+
+            let comp_ubo_data = VfxSmokeCompositeUniform {
+                src_texel: [half_target.inv_size()[0], half_target.inv_size()[1], 0.0, 0.0],
+            };
+            queue.write_buffer(
+                &self.smoke_composite_ubo,
+                0,
+                bytemuck::bytes_of(&comp_ubo_data),
+            );
+            let comp_bg = self.pipelines.bind_smoke_composite(
+                device,
+                &self.smoke_composite_ubo,
+                &half_target.view,
+            );
+            {
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("Grand Line VFX smoke volume composite"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: inputs.scene_color_view,
+                        resolve_target: None,
+                        depth_slice: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Load,
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    ..Default::default()
+                });
+                pass.set_pipeline(&self.pipelines.vfx_smoke_composite);
+                pass.set_bind_group(0, &comp_bg, &[]);
+                pass.draw(0..3, 0..1);
+            }
+            stats.smoke_volume_drawn = true;
         }
 
         // 3. Scene VFX geometry pass (smoke tubes -> smoke puffs -> solid meshes -> particles -> translucent meshes).
@@ -1844,184 +1844,85 @@ impl VfxFrameGraph {
         let run_emissive = inputs.quality.has_post()
             && inputs.post.bloom_strength > 0.0
             && has_emissive_geom;
-        if run_emissive {
-            if let Some(emissive_target) = self.targets.emissive() {
-                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("Grand Line VFX emissive pass"),
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &emissive_target.view,
-                        resolve_target: None,
-                        depth_slice: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
-                            store: wgpu::StoreOp::Store,
-                        },
-                    })],
-                    ..Default::default()
-                });
-                if !inputs.meshes_emissive.is_empty() {
-                    pass.set_pipeline(&self.pipelines.vfx_mesh_emissive);
-                    for batch in inputs.meshes_emissive {
-                        batch.submit(&mut pass);
-                    }
+        if run_emissive && let Some(emissive_target) = self.targets.emissive() {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Grand Line VFX emissive pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &emissive_target.view,
+                    resolve_target: None,
+                    depth_slice: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                ..Default::default()
+            });
+            if !inputs.meshes_emissive.is_empty() {
+                pass.set_pipeline(&self.pipelines.vfx_mesh_emissive);
+                for batch in inputs.meshes_emissive {
+                    batch.submit(&mut pass);
                 }
-                if !inputs.particles_emissive.is_empty() {
-                    pass.set_pipeline(&self.pipelines.vfx_particle_emissive);
-                    for batch in inputs.particles_emissive {
-                        batch.submit(&mut pass);
-                    }
-                }
-                stats.emissive_drawn = true;
             }
+            if !inputs.particles_emissive.is_empty() {
+                pass.set_pipeline(&self.pipelines.vfx_particle_emissive);
+                for batch in inputs.particles_emissive {
+                    batch.submit(&mut pass);
+                }
+            }
+            stats.emissive_drawn = true;
         }
 
         // 5. Half-res additive distortion pass (`Rg16Float`).
-        if has_distort {
-            if let Some(distort_target) = self.targets.distort() {
-                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("Grand Line VFX distort pass"),
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &distort_target.view,
-                        resolve_target: None,
-                        depth_slice: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
-                            store: wgpu::StoreOp::Store,
-                        },
-                    })],
-                    ..Default::default()
-                });
-                pass.set_pipeline(&self.pipelines.vfx_distort);
-                for batch in inputs.distort {
-                    batch.submit(&mut pass);
-                }
-                stats.distort_drawn = true;
+        if has_distort && let Some(distort_target) = self.targets.distort() {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Grand Line VFX distort pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &distort_target.view,
+                    resolve_target: None,
+                    depth_slice: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                ..Default::default()
+            });
+            pass.set_pipeline(&self.pipelines.vfx_distort);
+            for batch in inputs.distort {
+                batch.submit(&mut pass);
             }
+            stats.distort_drawn = true;
         }
 
         // 6. Jimenez bloom downsample + additive tent upsample chain.
         let bloom_mips = self.targets.bloom_mips().len();
         let run_bloom = stats.emissive_drawn && inputs.post.bloom_strength > 0.0 && bloom_mips > 0;
-        if run_bloom {
-            if let Some(emissive_target) = self.targets.emissive() {
-                // Downsample: emissive -> bloom[0] -> ... -> bloom[mips - 1]
-                let mut src_view = &emissive_target.view;
-                let mut src_inv = emissive_target.inv_size();
-                for i in 0..bloom_mips {
-                    let dst = &self.targets.bloom_mips()[i];
-                    let down_ubo = VfxBloomDownUniform {
-                        params: [
-                            src_inv[0],
-                            src_inv[1],
-                            inputs.post.bloom_threshold,
-                            if i == 0 { 1.0 } else { 0.0 },
-                        ],
-                    };
-                    queue.write_buffer(&self.bloom_down_ubos[i], 0, bytemuck::bytes_of(&down_ubo));
-                    let bg = self.pipelines.bind_bloom_down(
-                        device,
-                        &self.bloom_down_ubos[i],
-                        src_view,
-                    );
-                    {
-                        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                            label: Some("Grand Line VFX bloom down"),
-                            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                                view: &dst.view,
-                                resolve_target: None,
-                                depth_slice: None,
-                                ops: wgpu::Operations {
-                                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                                    store: wgpu::StoreOp::Store,
-                                },
-                            })],
-                            ..Default::default()
-                        });
-                        pass.set_pipeline(&self.pipelines.vfx_bloom_down);
-                        pass.set_bind_group(0, &bg, &[]);
-                        pass.draw(0..3, 0..1);
-                    }
-                    src_view = &dst.view;
-                    src_inv = dst.inv_size();
-                }
-
-                // Upsample: bloom[mips - 1] -> bloom[mips - 2] -> ... -> bloom[0] (additive)
-                if bloom_mips >= 2 {
-                    for i in (0..bloom_mips - 1).rev() {
-                        let src = &self.targets.bloom_mips()[i + 1];
-                        let dst = &self.targets.bloom_mips()[i];
-                        let up_ubo = VfxBloomUpUniform {
-                            params: [
-                                src.inv_size()[0],
-                                src.inv_size()[1],
-                                inputs.post.bloom_radius,
-                                inputs.post.bloom_up_intensity,
-                            ],
-                        };
-                        queue.write_buffer(&self.bloom_up_ubos[i], 0, bytemuck::bytes_of(&up_ubo));
-                        let bg = self.pipelines.bind_bloom_up(
-                            device,
-                            &self.bloom_up_ubos[i],
-                            &src.view,
-                        );
-                        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                            label: Some("Grand Line VFX bloom up"),
-                            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                                view: &dst.view,
-                                resolve_target: None,
-                                depth_slice: None,
-                                ops: wgpu::Operations {
-                                    load: wgpu::LoadOp::Load,
-                                    store: wgpu::StoreOp::Store,
-                                },
-                            })],
-                            ..Default::default()
-                        });
-                        pass.set_pipeline(&self.pipelines.vfx_bloom_up);
-                        pass.set_bind_group(0, &bg, &[]);
-                        pass.draw(0..3, 0..1);
-                    }
-                }
-                stats.bloom_mips_executed = bloom_mips;
-            }
-        }
-
-        // 7. Final cinematic composite pass (copies scene -> `scene_copy`, writes composite -> `scene_color_view`).
-        if inputs.quality.has_post() && (run_bloom || stats.distort_drawn || has_pulses) {
-            if self
-                .targets
-                .copy_scene_color(encoder, inputs.scene_color_texture)
-            {
-                if let (Some(scene_copy), Some(distort_view), Some(emissive_view), Some(bloom_view)) = (
-                    self.targets.scene_copy(),
-                    self.targets.distort_or_fallback(),
-                    self.targets.emissive_or_fallback(),
-                    self.targets.bloom0_or_fallback(),
-                ) {
-                    let mut comp = inputs.post.composite;
-                    if !inputs.quality.has_lens_effects() {
-                        comp.radial_chroma[2] = 0.0;
-                        comp.radial_chroma[3] = 0.0;
-                    }
-                    if !run_bloom {
-                        comp.bloom_distort_vig_desat[0] = 0.0;
-                    }
-                    comp.bloom_distort_vig_desat[1] = if stats.distort_drawn { 1.0 } else { 0.0 };
-                    comp.inv_size = [scene_copy.inv_size()[0], scene_copy.inv_size()[1], 0.0, 0.0];
-
-                    queue.write_buffer(&self.composite_ubo, 0, bytemuck::bytes_of(&comp));
-                    let bg = self.pipelines.bind_composite(
-                        device,
-                        &self.composite_ubo,
-                        &scene_copy.view,
-                        distort_view,
-                        emissive_view,
-                        bloom_view,
-                    );
+        if run_bloom && let Some(emissive_target) = self.targets.emissive() {
+            // Downsample: emissive -> bloom[0] -> ... -> bloom[mips - 1]
+            let mut src_view = &emissive_target.view;
+            let mut src_inv = emissive_target.inv_size();
+            for i in 0..bloom_mips {
+                let dst = &self.targets.bloom_mips()[i];
+                let down_ubo = VfxBloomDownUniform {
+                    params: [
+                        src_inv[0],
+                        src_inv[1],
+                        inputs.post.bloom_threshold,
+                        if i == 0 { 1.0 } else { 0.0 },
+                    ],
+                };
+                queue.write_buffer(&self.bloom_down_ubos[i], 0, bytemuck::bytes_of(&down_ubo));
+                let bg = self.pipelines.bind_bloom_down(
+                    device,
+                    &self.bloom_down_ubos[i],
+                    src_view,
+                );
+                {
                     let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        label: Some("Grand Line VFX composite"),
+                        label: Some("Grand Line VFX bloom down"),
                         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                            view: inputs.scene_color_view,
+                            view: &dst.view,
                             resolve_target: None,
                             depth_slice: None,
                             ops: wgpu::Operations {
@@ -2031,12 +1932,104 @@ impl VfxFrameGraph {
                         })],
                         ..Default::default()
                     });
-                    pass.set_pipeline(&self.pipelines.vfx_composite);
+                    pass.set_pipeline(&self.pipelines.vfx_bloom_down);
                     pass.set_bind_group(0, &bg, &[]);
                     pass.draw(0..3, 0..1);
-                    stats.composite_drawn = true;
+                }
+                src_view = &dst.view;
+                src_inv = dst.inv_size();
+            }
+
+            // Upsample: bloom[mips - 1] -> bloom[mips - 2] -> ... -> bloom[0] (additive)
+            if bloom_mips >= 2 {
+                for i in (0..bloom_mips - 1).rev() {
+                    let src = &self.targets.bloom_mips()[i + 1];
+                    let dst = &self.targets.bloom_mips()[i];
+                    let up_ubo = VfxBloomUpUniform {
+                        params: [
+                            src.inv_size()[0],
+                            src.inv_size()[1],
+                            inputs.post.bloom_radius,
+                            inputs.post.bloom_up_intensity,
+                        ],
+                    };
+                    queue.write_buffer(&self.bloom_up_ubos[i], 0, bytemuck::bytes_of(&up_ubo));
+                    let bg = self.pipelines.bind_bloom_up(
+                        device,
+                        &self.bloom_up_ubos[i],
+                        &src.view,
+                    );
+                    let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                        label: Some("Grand Line VFX bloom up"),
+                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                            view: &dst.view,
+                            resolve_target: None,
+                            depth_slice: None,
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Load,
+                                store: wgpu::StoreOp::Store,
+                            },
+                        })],
+                        ..Default::default()
+                    });
+                    pass.set_pipeline(&self.pipelines.vfx_bloom_up);
+                    pass.set_bind_group(0, &bg, &[]);
+                    pass.draw(0..3, 0..1);
                 }
             }
+            stats.bloom_mips_executed = bloom_mips;
+        }
+
+        // 7. Final cinematic composite pass (copies scene -> `scene_copy`, writes composite -> `scene_color_view`).
+        if inputs.quality.has_post()
+            && (run_bloom || stats.distort_drawn || has_pulses)
+            && self
+                .targets
+                .copy_scene_color(encoder, inputs.scene_color_texture)
+            && let (Some(scene_copy), Some(distort_view), Some(emissive_view), Some(bloom_view)) = (
+                self.targets.scene_copy(),
+                self.targets.distort_or_fallback(),
+                self.targets.emissive_or_fallback(),
+                self.targets.bloom0_or_fallback(),
+            )
+        {
+            let mut comp = inputs.post.composite;
+            if !inputs.quality.has_lens_effects() {
+                comp.radial_chroma[2] = 0.0;
+                comp.radial_chroma[3] = 0.0;
+            }
+            if !run_bloom {
+                comp.bloom_distort_vig_desat[0] = 0.0;
+            }
+            comp.bloom_distort_vig_desat[1] = if stats.distort_drawn { 1.0 } else { 0.0 };
+            comp.inv_size = [scene_copy.inv_size()[0], scene_copy.inv_size()[1], 0.0, 0.0];
+
+            queue.write_buffer(&self.composite_ubo, 0, bytemuck::bytes_of(&comp));
+            let bg = self.pipelines.bind_composite(
+                device,
+                &self.composite_ubo,
+                &scene_copy.view,
+                distort_view,
+                emissive_view,
+                bloom_view,
+            );
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Grand Line VFX composite"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: inputs.scene_color_view,
+                    resolve_target: None,
+                    depth_slice: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                ..Default::default()
+            });
+            pass.set_pipeline(&self.pipelines.vfx_composite);
+            pass.set_bind_group(0, &bg, &[]);
+            pass.draw(0..3, 0..1);
+            stats.composite_drawn = true;
         }
 
         stats

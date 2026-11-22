@@ -65,7 +65,7 @@ pub struct FormAttributeBonuses {
 }
 
 /// Hitbox & camera collision profile (`FormCollision.java`).
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct FormCollision {
     pub width: Option<f32>,
     pub height: Option<f32>,
@@ -73,19 +73,6 @@ pub struct FormCollision {
     pub pass_through_leaves: bool,
     pub fire_immune: bool,
     pub camera_distance: Option<f32>,
-}
-
-impl Default for FormCollision {
-    fn default() -> Self {
-        Self {
-            width: None,
-            height: None,
-            eye_height: None,
-            pass_through_leaves: false,
-            fire_immune: false,
-            camera_distance: None,
-        }
-    }
 }
 
 /// Energy, cooldown, timing, and movement tuning for a form (`com.devilfruits.core.form.FormStats`).

@@ -132,7 +132,7 @@ impl AbilityStats {
     /// Default mastery XP grant matching `Ability.masteryXp()`: `3.0 + energy_cost * 0.2`.
     pub fn mastery_xp(&self) -> f32 {
         self.mastery_xp_override
-            .unwrap_or_else(|| 3.0 + self.energy_cost * 0.2)
+            .unwrap_or(3.0 + self.energy_cost * 0.2)
     }
 
     /// Scaled damage using `Mastery.damage_multiplier` + form modifier.

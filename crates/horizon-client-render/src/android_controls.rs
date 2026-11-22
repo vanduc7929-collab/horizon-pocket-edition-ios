@@ -343,14 +343,14 @@ impl TouchControls {
     pub fn sync_grandline_buttons(&mut self, enabled: bool, bindings: &[(&str, &str, [f32; 3])]) {
         if !enabled {
             self.settings
-                .custom
+                .custom_buttons
                 .retain(|b| !b.custom_label.starts_with("DF "));
             return;
         }
         for &(key, label, [x, y, size]) in bindings {
             if let Some(existing) = self
                 .settings
-                .custom
+                .custom_buttons
                 .iter_mut()
                 .find(|b| b.custom_label == label)
             {
@@ -358,7 +358,7 @@ impl TouchControls {
                     existing.key = key.to_owned();
                 }
             } else {
-                self.settings.custom.push(CustomButton {
+                self.settings.custom_buttons.push(CustomButton {
                     key: key.to_owned(),
                     second_key: String::new(),
                     third_key: String::new(),

@@ -907,7 +907,7 @@ impl DevilFruitModule for PikaPikaModule {
 
                     // `LightFlight.kicks`: creatures in the beam path take `kickDamage + kickPerSpeed * speed` (`6.0 + 1.5 * 2.0 = 9.0`).
                     let kick_dmg =
-                        base_scaled_dmg + (LIGHT_FLIGHT_KICK_PER_SPEED as f32) * (speed as f32);
+                        base_scaled_dmg + LIGHT_FLIGHT_KICK_PER_SPEED * (speed as f32);
                     let path_hits = CombatTargeting::in_capsule(
                         ctx.nearby_targets,
                         ctx.player_id,
